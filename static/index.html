@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GitHub resume generator</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        pre { white-space: pre-wrap; background: #f4f4f4; padding: 1em; border-radius: 5px; }
+    </style>
+</head>
+<body>
+<h1>GitHub Resume Generator</h1>
+<form id="resumeForm">
+    <input type="text" id="username" placeholder="Enter GitHub Username" required/>
+    <button type="submit">Generate</button>
+</form>
+
+<div id="output"></div>
+<button id="savePdfBtn" style="display:none">download PDF</button>
+
+<script>
+    let lastResumeText = "";
+
+    document.getElementById("resumeForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const username = document.getElementById("username").value;
+        const output = document.getElementById("output");
+        output.innerHTML = "Loading...";
+        document.getElementById("savePdfBtn").style.display = "none";
+
+        fetch(`/generate_resume?username=${encodeURIComponent(username)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.resume) {
+                    lastResumeText = data.resume;
+                    output.innerHTML = `<pre>${escapeHtml(data.resume)}</pre>`;
+                    document.getElementById("savePdfBtn").style.display = "inline-block";
+                } else {
+                    output.innerHTML = "<b>Резюме не найдено или произошла ошибка.</b>";
+                }
+            })
+            .catch(err => {
+                output.innerHTML = "<b>Ошибка запроса:</b> " + err;
+            });
+    });
+
+    document.getElementById("savePdfBtn").addEventListener("click", function () {
+        fetch("/to_pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resume: lastResumeText })
+        })
+        .then(resp => resp.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "resume.pdf";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        });
+    });
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.innerText = text;
+        return div.innerHTML;
+    }
+</script>
+
+</body>
+</html>
